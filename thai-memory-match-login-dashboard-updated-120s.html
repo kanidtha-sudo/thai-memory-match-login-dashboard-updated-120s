@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เกมจับคู่แผ่นป้ายตัวอักษรไทย</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Sarabun', 'Tahoma', sans-serif;
+    background: linear-gradient(135deg, #fdf2f8 0%, #eef2ff 50%, #f0fdfa 100%);
+    min-height: 100vh;
+    margin: 0;
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .card-wrap {
+    background: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+    padding: 32px;
+    width: 100%;
+    max-width: 760px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 24px;
+    color: #4c1d95;
+    margin: 0 0 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #7c7c8a;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    font-size: 15px;
+  }
+  .stats span { color: #6b6b78; }
+  .stats b { color: #1f1f2e; font-size: 18px; }
+  #reset-btn {
+    background: #f472b6;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+    box-shadow: 0 3px 10px rgba(244,114,182,0.4);
+  }
+  #reset-btn:hover { background: #ec4899; }
+
+  #timer-row {
+    display: none;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    color: #4338ca;
+    margin: -6px 0 14px;
+    padding: 8px;
+    background: #eef2ff;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+  }
+  #timer-row.time-critical {
+    color: #dc2626;
+    background: #fef2f2;
+    animation: shake 0.6s infinite;
+  }
+
+  /* Setup panel */
+  #setup {
+    text-align: center;
+    padding: 20px 0 8px;
+  }
+  #setup p {
+    color: #4b5563;
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+  #start-btn {
+    background: linear-gradient(135deg, #a78bfa, #f472b6);
+    color: white;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(167,139,250,0.4);
+  }
+
+  /* Countdown banner */
+  #countdown-banner {
+    display: none;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: #7c3aed;
+    margin-bottom: 14px;
+    padding: 10px;
+    background: #f5f3ff;
+    border-radius: 12px;
+  }
+
+  #board {
+    display: none;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+  }
+  .tile {
+    position: relative;
+    height: 78px;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 800;
+    user-select: none;
+  }
+  .tile.hidden-face {
+    background: #eef2ff;
+    border: 2px solid #c7d2fe;
+    color: #4338ca;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .tile.revealed {
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.35);
+    background: #6d28d9;
+  }
+  .tile.wrong-flash {
+    animation: shake 0.35s;
+    filter: brightness(0.85);
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+  .tile.dissolving {
+    animation: dissolve 0.5s forwards;
+  }
+  @keyframes dissolve {
+    0% { transform: scale(1) rotate(0deg); opacity: 1; }
+    60% { transform: scale(1.15) rotate(8deg); opacity: 0.7; }
+    100% { transform: scale(0) rotate(20deg); opacity: 0; }
+  }
+  .tile.gone {
+    visibility: hidden;
+    cursor: default;
+  }
+  .tile-number {
+    position: absolute;
+    top: 4px;
+    left: 7px;
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.75;
+  }
+
+  #feedback {
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    min-height: 22px;
+    margin-top: 14px;
+  }
+  #feedback.correct-text { color: #16a34a; }
+  #feedback.wrong-text { color: #dc2626; }
+
+  #win-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 15, 60, 0.55);
+    backdrop-filter: blur(3px);
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+  }
+  #win-overlay.show { display: flex; }
+  .win-panel {
+    text-align: center;
+  }
+  .win-title {
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .score-ring-wrap {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ping-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 4px solid #fbbf24;
+    animation: ping-pulse 1.6s ease-out infinite;
+  }
+  .ping-ring.delay-1 { animation-delay: 0.5s; }
+  .ping-ring.delay-2 { animation-delay: 1s; }
+  @keyframes ping-pulse {
+    0% { transform: scale(0.7); opacity: 0.9; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+  .score-circle {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f472b6, #a78bfa);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 40px rgba(251, 191, 36, 0.6);
+  }
+  .score-circle .score-number {
+    color: #ffffff;
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .score-circle .score-label {
+    color: #fef3c7;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+  .score-circle.lose {
+    background: linear-gradient(135deg, #f87171, #fb923c);
+    box-shadow: 0 0 40px rgba(249, 115, 22, 0.6);
+  }
+  .win-again-btn {
+    margin-top: 28px;
+    background: #ffffff;
+    color: #7c3aed;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+  }
+
+  /* ===== Login / Dashboard ===== */
+  body { overflow-x: hidden; }
+  .app-hidden { display:none !important; }
+
+  #auth-screen{
+    position:fixed; inset:0; z-index:100;
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+    background:
+      radial-gradient(circle at 10% 20%, rgba(244,114,182,.35), transparent 28%),
+      radial-gradient(circle at 90% 10%, rgba(59,130,246,.32), transparent 30%),
+      radial-gradient(circle at 70% 85%, rgba(34,211,238,.28), transparent 30%),
+      linear-gradient(135deg,#fff7ed,#fdf4ff 45%,#eff6ff);
+  }
+  .auth-card{
+    width:min(560px,100%);
+    background:rgba(255,255,255,.95);
+    border:3px solid #f0abfc;
+    border-radius:28px;
+    padding:30px;
+    box-shadow:0 25px 70px rgba(76,29,149,.18);
+  }
+  .auth-logo{font-size:52px;text-align:center;line-height:1;margin-bottom:8px}
+  .auth-title{text-align:center;color:#6d28d9;font-size:28px;font-weight:900;margin:0}
+  .auth-sub{text-align:center;color:#6b7280;margin:8px 0 24px}
+  .role-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .role-btn{
+    border:0;border-radius:20px;padding:22px 14px;cursor:pointer;
+    font-weight:900;font-size:18px;color:white;box-shadow:0 10px 22px rgba(0,0,0,.10);
+    transition:.18s transform,.18s filter;
+  }
+  .role-btn:hover{transform:translateY(-3px);filter:brightness(1.03)}
+  .role-student{background:linear-gradient(135deg,#ec4899,#f97316)}
+  .role-teacher{background:linear-gradient(135deg,#4f46e5,#06b6d4)}
+  .auth-form{display:none;margin-top:18px;padding:18px;border-radius:22px;background:#faf5ff;border:2px dashed #c4b5fd}
+  .auth-form.show{display:block}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-weight:800;color:#4c1d95;margin-bottom:6px}
+  .field input,.field select{
+    width:100%;padding:12px 14px;border:2px solid #ddd6fe;border-radius:14px;
+    font:inherit;outline:none;background:white;
+  }
+  .field input:focus,.field select:focus{border-color:#8b5cf6;box-shadow:0 0 0 4px rgba(139,92,246,.12)}
+  .auth-actions{display:flex;gap:10px;margin-top:16px}
+  .primary-btn,.ghost-btn,.logout-btn{
+    border:0;border-radius:14px;padding:11px 16px;font-weight:800;cursor:pointer;font:inherit
+  }
+  .primary-btn{background:linear-gradient(135deg,#7c3aed,#ec4899);color:white;flex:1}
+  .ghost-btn{background:#fff;color:#6d28d9;border:2px solid #ddd6fe}
+  .auth-error{color:#dc2626;background:#fef2f2;padding:9px 12px;border-radius:10px;font-weight:700;display:none;margin-top:8px}
+  #dashboard-screen{
+    position:fixed;inset:0;z-index:90;display:none;overflow:auto;
+    padding:22px;background:linear-gradient(135deg,#eff6ff,#fdf4ff,#ecfdf5);
+  }
+  .dash-shell{max-width:1200px;margin:0 auto}
+  .dash-head{
+    display:flex;gap:14px;justify-content:space-between;align-items:center;flex-wrap:wrap;
+    margin-bottom:18px
+  }
+  .dash-title{margin:0;color:#312e81;font-size:28px}
+  .dash-sub{color:#6b7280}
+  .logout-btn{background:#ef4444;color:white}
+  .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .sum-card{padding:18px;border-radius:20px;color:white;box-shadow:0 10px 22px rgba(0,0,0,.10)}
+  .sum-card:nth-child(1){background:linear-gradient(135deg,#8b5cf6,#ec4899)}
+  .sum-card:nth-child(2){background:linear-gradient(135deg,#06b6d4,#3b82f6)}
+  .sum-card:nth-child(3){background:linear-gradient(135deg,#10b981,#22c55e)}
+  .sum-card:nth-child(4){background:linear-gradient(135deg,#f59e0b,#f97316)}
+  .sum-label{font-size:13px;opacity:.9}.sum-val{font-size:30px;font-weight:900}
+  .filters{background:white;padding:15px;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.08);margin-bottom:14px}
+  .filter-grid{display:grid;grid-template-columns:1.1fr 1fr 1.5fr;gap:10px}
+  .filter-grid input,.filter-grid select{width:100%;padding:11px;border:2px solid #e9d5ff;border-radius:12px;font:inherit}
+  .live-badge{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:800;color:#047857}
+  .live-dot{width:9px;height:9px;border-radius:50%;background:#10b981;box-shadow:0 0 0 5px rgba(16,185,129,.12)}
+  .table-wrap{overflow:auto;background:#fff;border-radius:20px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
+  table{width:100%;border-collapse:collapse;min-width:780px}
+  th{background:#ede9fe;color:#4c1d95;padding:12px;text-align:left;font-size:14px}
+  td{padding:12px;border-top:1px solid #f1f5f9}
+  tr:hover td{background:#faf5ff}
+  .pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}
+  .pill.done{background:#dcfce7;color:#166534}
+  .pill.playing{background:#fef3c7;color:#92400e}
+  .empty-row{text-align:center;color:#9ca3af;padding:30px}
+  .student-banner{
+    display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-bottom:12px
+  }
+  .student-chip{background:#ede9fe;color:#4c1d95;padding:7px 11px;border-radius:999px;font-weight:800;font-size:13px}
+  @media(max-width:800px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){
+    .role-grid,.filter-grid{grid-template-columns:1fr}
+    .auth-card{padding:22px}
+    .summary-grid{grid-template-columns:1fr}
+  }
+
+</style>
+</head>
+<body>
+
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🎯✨</div>
+    <h2 class="auth-title">เกมจับคู่แผ่นป้ายตัวอักษรไทย</h2>
+    <div class="auth-sub">เลือกประเภทผู้ใช้งานเพื่อเข้าสู่ระบบ</div>
+    <div class="role-grid">
+      <button class="role-btn role-student" id="student-role-btn">👩‍🎓 นักเรียน</button>
+      <button class="role-btn role-teacher" id="teacher-role-btn">👩‍🏫 ครู</button>
+    </div>
+
+    <div class="auth-form" id="student-form">
+      <div class="field"><label>สาขาวิชา</label>
+        <select id="student-major">
+          <option value="">-- เลือกสาขาวิชา --</option>
+          <option>การจัดการฯ</option><option>การตลาด</option><option>การบัญชี</option>
+        </select>
+      </div>
+      <div class="field"><label>รหัสประจำตัว</label><input id="student-id" maxlength="20" placeholder="กรอกรหัสประจำตัว"></div>
+      <div class="field"><label>ชื่อ - นามสกุล</label><input id="student-name" maxlength="80" placeholder="กรอกชื่อ - นามสกุล"></div>
+      <div class="auth-error" id="student-error"></div>
+      <div class="auth-actions">
+        <button class="ghost-btn" id="student-back">ย้อนกลับ</button>
+        <button class="primary-btn" id="student-login">เข้าสู่เกม 🚀</button>
+      </div>
+    </div>
+
+    <div class="auth-form" id="teacher-form">
+      <div class="field"><label>รหัสครู</label><input id="teacher-code" type="password" inputmode="numeric" maxlength="10" placeholder="กรอกรหัสครู"></div>
+      <div class="auth-error" id="teacher-error"></div>
+      <div class="auth-actions">
+        <button class="ghost-btn" id="teacher-back">ย้อนกลับ</button>
+        <button class="primary-btn" id="teacher-login">เข้าสู่แดชบอร์ด 📊</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="dashboard-screen">
+  <div class="dash-shell">
+    <div class="dash-head">
+      <div>
+        <h2 class="dash-title">📊 Dashboard นักเรียน</h2>
+        <div class="dash-sub">ติดตามผลการเล่นแบบเรียลไทม์ในอุปกรณ์/แท็บที่เปิดระบบนี้</div>
+        <div class="live-badge"><span class="live-dot"></span> LIVE</div>
+      </div>
+      <button class="logout-btn" id="teacher-logout">ออกจากระบบ</button>
+    </div>
+    <div class="summary-grid">
+      <div class="sum-card"><div class="sum-label">นักเรียนทั้งหมด</div><div class="sum-val" id="sum-total">0</div></div>
+      <div class="sum-card"><div class="sum-label">กำลังทำแบบฝึก</div><div class="sum-val" id="sum-playing">0</div></div>
+      <div class="sum-card"><div class="sum-label">ทำเสร็จแล้ว</div><div class="sum-val" id="sum-done">0</div></div>
+      <div class="sum-card"><div class="sum-label">คะแนนเฉลี่ย</div><div class="sum-val" id="sum-avg">0</div></div>
+    </div>
+    <div class="filters">
+      <div class="filter-grid">
+        <select id="filter-major"><option value="">ทุกสาขาวิชา</option><option>การจัดการฯ</option><option>การตลาด</option><option>การบัญชี</option></select>
+        <input id="filter-id" placeholder="ค้นหารหัสประจำตัว">
+        <input id="filter-name" placeholder="ค้นหาชื่อ - สกุล">
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>สาขาวิชา</th><th>รหัสประจำตัว</th><th>ชื่อ - นามสกุล</th><th>คะแนน</th><th>จับคู่</th><th>สถานะ</th><th>อัปเดตล่าสุด</th></tr></thead>
+        <tbody id="student-table-body"><tr><td class="empty-row" colspan="7">ยังไม่มีข้อมูลนักเรียน</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="student-banner app-hidden" id="student-banner">
+  <span class="student-chip" id="student-chip"></span>
+  <button class="logout-btn" id="student-logout">ออกจากระบบ</button>
+</div>
+
+<div class="card-wrap">
+  <h1>เกมจับคู่แผ่นป้ายตัวอักษรไทย</h1>
+  <div class="subtitle">จำตำแหน่งให้แม่น แล้วเปิดป้ายให้ตรงคู่</div>
+
+  <div class="stats">
+    <span>จับคู่แล้ว: <b id="matched-count">0</b>/<b id="total-pairs">21</b></span>
+    <button id="reset-btn">เริ่มใหม่</button>
+    <span>คะแนน: <b id="score">0</b></span>
+  </div>
+
+  <div id="timer-row">เวลาที่เหลือ: <span id="timer-display">02:00</span></div>
+
+  <div id="setup">
+    <p>ก่อนเริ่มเล่น ป้ายทั้ง 42 ช่องจะเปิดให้ดู 4 วินาทีเพื่อจำตำแหน่ง (ชุดที่ 1-5) จากนั้นชุดที่ 6-8 เปิด 3 วินาที และตั้งแต่ชุดที่ 9 เป็นต้นไปเหลือ 2 วินาที จากนั้นมีเวลา 120 วินาทีในการจับคู่ให้ครบ หากไม่เปิดป้ายภายใน 5 วินาทีจะถือว่าตอบผิด และกดป้ายเดิมซ้ำได้เพื่อยกเลิกการเลือก</p>
+    <button id="start-btn">เริ่มเกม</button>
+  </div>
+
+  <div id="countdown-banner"></div>
+  <div id="board"></div>
+  <div id="feedback"></div>
+</div>
+
+<div id="win-overlay">
+  <div class="win-panel">
+    <div class="win-title" id="win-title-text">จับคู่ครบทุกป้ายแล้ว!</div>
+    <div class="score-ring-wrap">
+      <div class="ping-ring"></div>
+      <div class="ping-ring delay-1"></div>
+      <div class="ping-ring delay-2"></div>
+      <div class="score-circle">
+        <div class="score-number" id="final-score">0</div>
+        <div class="score-label">คะแนน</div>
+      </div>
+    </div>
+    <button class="win-again-btn" id="play-again-btn">เล่นอีกครั้ง</button>
+  </div>
+</div>
+
+<script>
+
+// ===== ระบบเข้าสู่ระบบ / บันทึกผล =====
+const DATA_KEY = 'thaiMemoryMatchStudents_v1';
+const TAB_CHANNEL = 'thaiMemoryMatchRealtime_v1';
+const TEACHER_CODE = '2516';
+let currentStudent = JSON.parse(sessionStorage.getItem('thaiMemoryCurrentStudent') || 'null');
+let realtimeChannel = null;
+
+function readStudents(){
+  try { return JSON.parse(localStorage.getItem(DATA_KEY) || '{}'); } catch(e){ return {}; }
+}
+function writeStudents(data){
+  localStorage.setItem(DATA_KEY, JSON.stringify(data));
+  if (realtimeChannel) realtimeChannel.postMessage({type:'update'});
+}
+function studentKey(s){ return [s.major,s.id].join('::').trim(); }
+function ensureRealtime(){
+  if ('BroadcastChannel' in window){
+    realtimeChannel = new BroadcastChannel(TAB_CHANNEL);
+    realtimeChannel.onmessage = () => {
+      if (document.getElementById('dashboard-screen').style.display === 'block') renderDashboard();
+    };
+  }
+  window.addEventListener('storage', (e)=>{ if(e.key===DATA_KEY && document.getElementById('dashboard-screen').style.display==='block') renderDashboard(); });
+}
+function showAuth(){
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('dashboard-screen').style.display='none';
+  document.querySelector('.card-wrap').classList.add('app-hidden');
+  document.getElementById('student-banner').classList.add('app-hidden');
+}
+function showStudentGame(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('dashboard-screen').style.display='none';
+  document.querySelector('.card-wrap').classList.remove('app-hidden');
+  const b=document.getElementById('student-banner');
+  b.classList.remove('app-hidden');
+  document.getElementById('student-chip').textContent='👩‍🎓 '+currentStudent.name+' • '+currentStudent.major+' • '+currentStudent.id;
+}
+function showTeacherDash(){
+  document.getElementById('auth-screen').style.display='none';
+  document.querySelector('.card-wrap').classList.add('app-hidden');
+  document.getElementById('student-banner').classList.add('app-hidden');
+  document.getElementById('dashboard-screen').style.display='block';
+  renderDashboard();
+}
+function saveCurrentStudent(patch){
+  if(!currentStudent) return;
+  currentStudent = {...currentStudent,...patch,lastUpdate:new Date().toISOString()};
+  sessionStorage.setItem('thaiMemoryCurrentStudent',JSON.stringify(currentStudent));
+  const all=readStudents(); all[studentKey(currentStudent)] = currentStudent; writeStudents(all);
+}
+function registerStudent(){
+  const major=document.getElementById('student-major').value;
+  const id=document.getElementById('student-id').value.trim();
+  const name=document.getElementById('student-name').value.trim();
+  const err=document.getElementById('student-error'); err.style.display='none';
+  if(!major || !id || !name){err.textContent='กรุณากรอกข้อมูลให้ครบทุกช่อง';err.style.display='block';return;}
+  currentStudent={major,id,name,score:0,matched:0,total:pairDefs.length,status:'กำลังทำ',lastUpdate:new Date().toISOString()};
+  sessionStorage.setItem('thaiMemoryCurrentStudent',JSON.stringify(currentStudent));
+  const all=readStudents(); all[studentKey(currentStudent)] = currentStudent; writeStudents(all);
+  showStudentGame();
+}
+function teacherLogin(){
+  const code=document.getElementById('teacher-code').value.trim();
+  const err=document.getElementById('teacher-error'); err.style.display='none';
+  if(code!==TEACHER_CODE){err.textContent='รหัสครูไม่ถูกต้อง';err.style.display='block';return;}
+  sessionStorage.setItem('thaiMemoryTeacher','1'); showTeacherDash();
+}
+function renderDashboard(){
+  const all=Object.values(readStudents());
+  const major=document.getElementById('filter-major').value;
+  const sid=document.getElementById('filter-id').value.trim().toLowerCase();
+  const name=document.getElementById('filter-name').value.trim().toLowerCase();
+  const filtered=all.filter(s=>{
+    return (!major || s.major===major) &&
+      (!sid || String(s.id).toLowerCase().includes(sid)) &&
+      (!name || String(s.name).toLowerCase().includes(name));
+  }).sort((a,b)=>new Date(b.lastUpdate)-new Date(a.lastUpdate));
+  const total=all.length, playing=all.filter(s=>s.status==='กำลังทำ').length, done=all.filter(s=>s.status==='ทำเสร็จแล้ว').length;
+  const avg=total ? Math.round(all.reduce((n,s)=>n+Number(s.score||0),0)/total*10)/10 : 0;
+  document.getElementById('sum-total').textContent=total;
+  document.getElementById('sum-playing').textContent=playing;
+  document.getElementById('sum-done').textContent=done;
+  document.getElementById('sum-avg').textContent=avg;
+  const tb=document.getElementById('student-table-body');
+  if(!filtered.length){tb.innerHTML='<tr><td class="empty-row" colspan="7">ไม่พบข้อมูลตามเงื่อนไขที่ค้นหา</td></tr>';return;}
+  tb.innerHTML=filtered.map(s=>{
+    const time=new Date(s.lastUpdate);
+    const timeText=isNaN(time)?'-':time.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const statusClass=s.status==='ทำเสร็จแล้ว'?'done':'playing';
+    return `<tr><td>${escapeHtml(s.major)}</td><td>${escapeHtml(s.id)}</td><td>${escapeHtml(s.name)}</td><td><b>${s.score??0}</b></td><td>${s.matched??0}/${s.total??pairDefs.length}</td><td><span class="pill ${statusClass}">${escapeHtml(s.status||'กำลังทำ')}</span></td><td>${timeText}</td></tr>`;
+  }).join('');
+}
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+function logout(){
+  currentStudent=null; sessionStorage.removeItem('thaiMemoryCurrentStudent'); sessionStorage.removeItem('thaiMemoryTeacher'); location.reload();
+}
+
+document.getElementById('student-role-btn').onclick=()=>{document.getElementById('teacher-form').classList.remove('show');document.getElementById('student-form').classList.add('show');};
+document.getElementById('teacher-role-btn').onclick=()=>{document.getElementById('student-form').classList.remove('show');document.getElementById('teacher-form').classList.add('show');};
+document.getElementById('student-back').onclick=()=>document.getElementById('student-form').classList.remove('show');
+document.getElementById('teacher-back').onclick=()=>document.getElementById('teacher-form').classList.remove('show');
+document.getElementById('student-login').onclick=registerStudent;
+document.getElementById('teacher-login').onclick=teacherLogin;
+document.getElementById('student-logout').onclick=logout;
+document.getElementById('teacher-logout').onclick=logout;
+['filter-major','filter-id','filter-name'].forEach(id=>document.getElementById(id).addEventListener('input',renderDashboard));
+ensureRealtime();
+
+// คู่ที่ถูกต้อง: [ตัวบน, ตัวล่าง]
+const pairDefs = [
+  ["โ","ด"],
+  ["ฌ","เ"],
+  ["ฑ","พ"],
+  ["ธ","ะ"],
+  ["๊","ี"],
+  ["๋","่"],
+  ["ณ","ร"],
+  ["็","้"],
+  ["ษ","า"],
+  ["ฎ","ำ"],
+  ["ฏ","ก"],
+  ["ฆ","ห"],
+  ['"',"ไ"],
+  ["ศ","ส"],
+  ["ฯ","น"],
+  ["ฮ","อ"],
+  ["ฉ","แ"],
+  ["์","ื"],
+  ["ฒ","ม"],
+  ["?","ท"],
+  ["ู","ุ"]
+];
+
+let tiles = [];       // {char, pairId, matched}
+let selected = [];    // indices currently flipped
+let score = 0;
+let matchedCount = 0;
+let locked = false;
+let previewDuration = 3;
+let audioCtx = null;
+let previewTimerId = null;   // interval id of the reveal-countdown, so it can be cancelled if time runs out
+let gameTimerId = null;      // interval id of the main 2:00 game timer
+let gameTimeLimit = 120;     // seconds
+let timeRemaining = gameTimeLimit;
+let gameOver = false;        // true once won or timed out, blocks any pending callbacks
+let answerTimeoutId = null;  // timeout id for the 5-second "must flip a tile" timer
+
+// สีของป้ายตอนเปิดดู จะสุ่มเปลี่ยนใหม่ทุกครั้งที่มีการเปิดให้ดู (ทั้งกระดานเป็นสีเดียวกันเสมอ เพื่อไม่ชี้นำคำตอบ)
+const revealPalette = ['#6d28d9', '#be123c', '#0e7490', '#a16207', '#15803d', '#b45309', '#4338ca', '#9d174d'];
+let currentRevealColor = revealPalette[0];
+
+function pickNextRevealColor() {
+  let next = currentRevealColor;
+  while (next === currentRevealColor) {
+    next = revealPalette[Math.floor(Math.random() * revealPalette.length)];
+  }
+  currentRevealColor = next;
+  return next;
+}
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+// เสียงตอนป้ายคู่ที่ถูกต้อง "สูญสลาย" หายไป
+function playDissolveSound() {
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  for (let i = 0; i < 3; i++) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    const startFreq = 900 + i * 300;
+    osc.frequency.setValueAtTime(startFreq, now + i * 0.05);
+    osc.frequency.exponentialRampToValueAtTime(120, now + i * 0.05 + 0.45);
+    gain.gain.setValueAtTime(0.001, now + i * 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + i * 0.05 + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.5);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now + i * 0.05);
+    osc.stop(now + i * 0.05 + 0.55);
+  }
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildTiles() {
+  let raw = [];
+  pairDefs.forEach((p, pid) => {
+    raw.push({ char: p[0], pairId: pid, matched: false });
+    raw.push({ char: p[1], pairId: pid, matched: false });
+  });
+  tiles = shuffle(raw);
+}
+
+function renderBoard(faceUp) {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  tiles.forEach((t, idx) => {
+    const div = document.createElement('div');
+    div.className = 'tile';
+    div.dataset.idx = idx;
+
+    if (t.matched) {
+      div.classList.add('gone');
+    } else if (faceUp || selected.includes(idx)) {
+      div.classList.add('revealed');
+      div.style.background = currentRevealColor;
+      div.textContent = t.char;
+      const num = document.createElement('span');
+      num.className = 'tile-number';
+      num.textContent = idx + 1;
+      div.appendChild(num);
+      div.onclick = () => flipTile(idx);
+    } else {
+      div.classList.add('hidden-face');
+      div.textContent = idx + 1;
+      div.onclick = () => flipTile(idx);
+    }
+    board.appendChild(div);
+  });
+}
+
+function startPreview() {
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('board').style.display = 'grid';
+  document.getElementById('win-overlay').classList.remove('show');
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('total-pairs').textContent = pairDefs.length;
+  document.getElementById('win-title-text').textContent = 'จับคู่ครบทุกป้ายแล้ว!';
+  document.querySelector('.score-circle').classList.remove('lose');
+
+  buildTiles();
+  score = 0;
+  matchedCount = 0;
+  selected = [];
+  locked = true;
+  gameOver = false;
+  updateStats();
+
+  pickNextRevealColor();
+  runPreview('จำตำแหน่งไว้ให้ดี เหลือเวลา ', () => {
+    locked = false;
+    renderBoard(false);
+    startGameTimer();
+    startAnswerTimer();
+  });
+}
+
+// จำนวนวินาทีที่เปิดป้ายให้ดูก่อนแต่ละรอบ: รอบที่ 1-5 เปิด 4 วิ, รอบที่ 6-8 เปิด 3 วิ, ตั้งแต่รอบที่ 9 (ชุดที่ 9) เป็นต้นไปเปิดเพียง 2 วิ
+function getPreviewDuration() {
+  const nextRound = matchedCount + 1;
+  if (nextRound <= 5) return 4;
+  if (nextRound <= 8) return 3;
+  return 2;
+}
+
+// เปิดป้ายที่เหลือทั้งหมดให้ดูอีกครั้ง แล้วค่อยปิดและปลดล็อก
+// เรียกใช้ทุกครั้งหลังจากตอบถูก/ผิด ก่อนที่จะให้เลือกคู่ใหม่
+function runPreview(labelPrefix, onDone) {
+  renderBoard(true);
+  const banner = document.getElementById('countdown-banner');
+  banner.style.display = 'block';
+  let remaining = getPreviewDuration();
+  banner.textContent = labelPrefix + remaining + ' วินาที';
+
+  previewTimerId = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      clearInterval(previewTimerId);
+      previewTimerId = null;
+      banner.style.display = 'none';
+      onDone();
+    } else {
+      banner.textContent = labelPrefix + remaining + ' วินาที';
+    }
+  }, 1000);
+}
+
+// ---- ตัวจับเวลาหลักของเกม (2 นาที) ----
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+function updateTimerDisplay() {
+  document.getElementById('timer-display').textContent = formatTime(Math.max(timeRemaining, 0));
+  const row = document.getElementById('timer-row');
+  if (timeRemaining <= 10) {
+    row.classList.add('time-critical');
+  } else {
+    row.classList.remove('time-critical');
+  }
+}
+
+function startGameTimer() {
+  stopGameTimer();
+  timeRemaining = gameTimeLimit;
+  document.getElementById('timer-row').style.display = 'block';
+  updateTimerDisplay();
+  gameTimerId = setInterval(() => {
+    timeRemaining -= 1;
+    updateTimerDisplay();
+    if (timeRemaining <= 0) {
+      stopGameTimer();
+      handleTimeUp();
+    }
+  }, 1000);
+}
+
+function stopGameTimer() {
+  if (gameTimerId) {
+    clearInterval(gameTimerId);
+    gameTimerId = null;
+  }
+}
+
+function handleTimeUp() {
+  if (gameOver) return;
+  gameOver = true;
+  locked = true;
+  clearAnswerTimer();
+  if (previewTimerId) {
+    clearInterval(previewTimerId);
+    previewTimerId = null;
+  }
+  document.getElementById('countdown-banner').style.display = 'none';
+  document.getElementById('timer-row').style.display = 'none';
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('win-title-text').textContent = 'หมดเวลา! ลองใหม่อีกครั้ง';
+  document.querySelector('.score-circle').classList.add('lose');
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('win-overlay').classList.add('show');
+  saveCurrentStudent({score, matched: matchedCount, total: pairDefs.length, status: 'หมดเวลา'});
+}
+
+function updateStats() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('matched-count').textContent = matchedCount;
+  saveCurrentStudent({score, matched: matchedCount, total: pairDefs.length, status: gameOver ? 'ทำเสร็จแล้ว' : 'กำลังทำ'});
+}
+
+// ---- ตัวจับเวลา 5 วินาที: หากไม่เปิดป้ายเลยภายในเวลานี้ ถือว่าตอบผิด ----
+function startAnswerTimer() {
+  clearAnswerTimer();
+  answerTimeoutId = setTimeout(handleNoAnswerTimeout, 5000);
+}
+
+function clearAnswerTimer() {
+  if (answerTimeoutId) {
+    clearTimeout(answerTimeoutId);
+    answerTimeoutId = null;
+  }
+}
+
+function handleNoAnswerTimeout() {
+  if (gameOver) return;
+  answerTimeoutId = null;
+  locked = true;
+  score -= 1;
+  const fb = document.getElementById('feedback');
+  fb.textContent = 'ไม่เปิดป้ายทันเวลา ถือว่าตอบผิด ติดลบ 1 คะแนน';
+  fb.className = 'wrong-text';
+  updateStats();
+
+  setTimeout(() => {
+    if (gameOver) return;
+    selected = [];
+    pickNextRevealColor();
+    runPreview('ไม่ตอบทันเวลา! จำตำแหน่งที่เหลือ เหลือเวลา ', () => {
+      locked = false;
+      renderBoard(false);
+      startAnswerTimer();
+    });
+  }, 800);
+}
+
+function flipTile(idx) {
+  if (locked) return;
+  if (tiles[idx].matched) return;
+
+  if (selected.includes(idx)) {
+    // กดซ้ำป้ายเดิมที่เลือกไว้ -> ยกเลิกการเลือกป้ายนั้น
+    selected = selected.filter(i => i !== idx);
+    renderBoard(false);
+    if (selected.length === 0) {
+      startAnswerTimer();
+    }
+    return;
+  }
+
+  clearAnswerTimer();
+  selected.push(idx);
+  renderBoard(false);
+
+  if (selected.length === 2) {
+    locked = true;
+    const [i1, i2] = selected;
+    const t1 = tiles[i1];
+    const t2 = tiles[i2];
+    const fb = document.getElementById('feedback');
+
+    if (t1.pairId === t2.pairId) {
+      score += 2;
+      t1.matched = true;
+      t2.matched = true;
+      matchedCount += 1;
+      fb.textContent = 'ถูกต้อง! ได้ 2 คะแนน';
+      fb.className = 'correct-text';
+      updateStats();
+      playDissolveSound();
+
+      const board = document.getElementById('board');
+      [i1, i2].forEach(i => {
+        const el = board.querySelector('[data-idx="' + i + '"]');
+        if (el) el.classList.add('dissolving');
+      });
+
+      setTimeout(() => {
+        if (gameOver) return;
+        selected = [];
+        if (matchedCount === pairDefs.length) {
+          gameOver = true;
+          stopGameTimer();
+          clearAnswerTimer();
+          document.getElementById('timer-row').style.display = 'none';
+          renderBoard(false);
+          document.getElementById('feedback').textContent = '';
+          document.getElementById('final-score').textContent = score;
+          document.getElementById('win-overlay').classList.add('show');
+          saveCurrentStudent({score, matched: matchedCount, total: pairDefs.length, status: 'ทำเสร็จแล้ว'});
+        } else {
+          // ตอบถูก -> เปิดป้ายที่เหลือทั้งหมดให้ดูอีกครั้งก่อนเลือกคู่ต่อไป (สุ่มสีใหม่ทุกครั้ง)
+          pickNextRevealColor();
+          runPreview('ตอบถูก! จำตำแหน่งที่เหลือ เหลือเวลา ', () => {
+            locked = false;
+            renderBoard(false);
+            startAnswerTimer();
+          });
+        }
+      }, 500);
+    } else {
+      score -= 1;
+      fb.textContent = 'ไม่ตรงกัน ติดลบ 1 คะแนน';
+      fb.className = 'wrong-text';
+      updateStats();
+
+      const board = document.getElementById('board');
+      [i1, i2].forEach(i => {
+        const el = board.querySelector('[data-idx="' + i + '"]');
+        if (el) el.classList.add('wrong-flash');
+      });
+
+      setTimeout(() => {
+        if (gameOver) return;
+        selected = [];
+        // ตอบผิด -> เปิดป้ายที่เหลือทั้งหมดให้ดูอีกครั้งเช่นกัน ก่อนให้เลือกใหม่
+        pickNextRevealColor();
+        runPreview('ตอบผิด! จำตำแหน่งที่เหลือ เหลือเวลา ', () => {
+          locked = false;
+          renderBoard(false);
+          startAnswerTimer();
+        });
+      }, 800);
+    }
+  }
+}
+
+document.getElementById('start-btn').addEventListener('click', startPreview);
+
+document.getElementById('reset-btn').addEventListener('click', resetToSetup);
+document.getElementById('play-again-btn').addEventListener('click', resetToSetup);
+
+function resetToSetup() {
+  stopGameTimer();
+  clearAnswerTimer();
+  if (previewTimerId) {
+    clearInterval(previewTimerId);
+    previewTimerId = null;
+  }
+  document.getElementById('board').style.display = 'none';
+  document.getElementById('countdown-banner').style.display = 'none';
+  document.getElementById('timer-row').style.display = 'none';
+  document.getElementById('timer-row').classList.remove('time-critical');
+  document.getElementById('win-overlay').classList.remove('show');
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('setup').style.display = 'block';
+  score = 0;
+  matchedCount = 0;
+  updateStats();
+}
+
+// เปิดหน้าตาม session ที่มีอยู่
+if (sessionStorage.getItem('thaiMemoryTeacher')==='1') showTeacherDash();
+else if (currentStudent) showStudentGame();
+else showAuth();
+
+</script>
+</body>
+</html>
